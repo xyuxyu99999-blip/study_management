@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import streamlit as st
 
+app = Flask(_name_)
 port = int(os.environ.get("PORT", 5000))
 app.run(host="0.0.0.0", port=port)
 
