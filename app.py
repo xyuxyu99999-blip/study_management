@@ -4,6 +4,9 @@ import os
 import streamlit as st
 
 app = Flask(__name__)
+
+def index():
+    return "こんにちは"
 app.add_url_rule('/', view_func=index)
 
 # スマホでタップした瞬間にサイドバーを強制的に閉じるためのJavaScriptを仕込む
