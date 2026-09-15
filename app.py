@@ -5,10 +5,6 @@ import streamlit as st
 
 app = Flask(__name__)
 
-def index():
-    return "こんにちは"
-app.add_url_rule('/', view_func=index)
-
 # スマホでタップした瞬間にサイドバーを強制的に閉じるためのJavaScriptを仕込む
 # ラジオボタンがクリックされたら、Streamlit標準の「サイドバーを閉じるボタン」を自動でクリックさせます
 st.components.v1.html("""
@@ -259,3 +255,11 @@ elif st.session_state.current_page == "ToDoリスト":
     if st.button("⬅️ ホームに戻る", use_container_width=True):
         st.session_state.current_page = "ホーム"
         st.rerun()
+
+def index():
+    return "正常起動完了"
+app.add_url_rule('/', view_func=index)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
