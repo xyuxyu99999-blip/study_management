@@ -1,4 +1,5 @@
 import calendar
+import html
 import os
 from datetime import date
 
@@ -96,6 +97,12 @@ if st.session_state.current_page == "ホーム":
 
     if st.button("✅ ToDoリストを作成、確認する", use_container_width=True):
         st.session_state.current_page = "ToDoリスト"
+        st.rerun()
+
+    st.write("")
+
+    if st.button("📅 予定カレンダーを開く", use_container_width=True):
+        st.session_state.current_page = "カレンダー"
         st.rerun()
 
 elif st.session_state.current_page == "定期テスト":
@@ -333,35 +340,105 @@ elif st.session_state.current_page == "カレンダー":
     if not todos_by_date:
         st.info("期限が設定されたタスクはありません。")
 
-    weekday_columns = st.columns(7)
-    for weekday_index, (column, weekday) in enumerate(
-        zip(weekday_columns, ["月", "火", "水", "木", "金", "土", "日"])
-    ):
-        with column.container(border=True):
-            if weekday_index == 5:
-                st.markdown(f":blue[**{weekday}**]")
-            elif weekday_index == 6:
-                st.markdown(f":red[**{weekday}**]")
-            else:
-                st.markdown(f"**{weekday}**")
+    calendar_cells = []
+    for weekday_index, weekday in enumerate(["日", "月", "火", "水", "木", "金", "土"]):
+        weekend_class = " sunday" if weekday_index == 0 else " saturday" if weekday_index == 6 else ""
+        calendar_cells.append(
+            f'<div class="study-calendar-weekday{weekend_class}">{weekday}</div>'
+        )
 
-    month_calendar = calendar.Calendar(firstweekday=0)
+    month_calendar = calendar.Calendar(firstweekday=6)
     for week in month_calendar.monthdatescalendar(
         current_month.year, current_month.month
     ):
-        day_columns = st.columns(7)
-        for column, calendar_day in zip(day_columns, week):
-            with column.container(border=True):
-                if calendar_day.month == current_month.month:
-                    if calendar_day.weekday() == 5:
-                        st.markdown(f":blue[**{calendar_day.day}**]")
-                    elif calendar_day.weekday() == 6:
-                        st.markdown(f":red[**{calendar_day.day}**]")
-                    else:
-                        st.markdown(f"**{calendar_day.day}**")
-                else:
-                    st.markdown(f":gray[{calendar_day.day}]")
+        for calendar_day in week:
+            classes = ["study-calendar-day"]
+            if calendar_day.month != current_month.month:
+                classes.append("outside-month")
+            if calendar_day == date.today():
+                classes.append("today")
+            if calendar_day.weekday() == 5:
+                classes.append("saturday")
+            elif calendar_day.weekday() == 6:
+                classes.append("sunday")
 
-                for item in todos_by_date.get(calendar_day, []):
-                    status = "完了: " if item.get("done", False) else ""
-                    st.caption(f"{status}{item['task']}")
+            task_markup = "".join(
+                '<div class="study-calendar-task{}" title="{}">{}{}</div>'.format(
+                    " is-done" if item.get("done", False) else "",
+                    html.escape(str(item["task"]), quote=True),
+                    "完了: " if item.get("done", False) else "",
+                    html.escape(str(item["task"])),
+                )
+                for item in todos_by_date.get(calendar_day, [])
+            )
+            calendar_cells.append(
+                f'<div class="{" ".join(classes)}">'
+                f'<div class="study-calendar-date">{calendar_day.day}</div>'
+                f'{task_markup}</div>'
+            )
+
+    st.markdown(
+        """
+        <style>
+        .study-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 4px;
+        }
+        .study-calendar-weekday, .study-calendar-day {
+            min-width: 0;
+            border: 1px solid rgba(49, 51, 63, 0.2);
+            border-radius: 4px;
+        }
+        .study-calendar-weekday {
+            padding: 8px 4px;
+            background: rgba(151, 166, 195, 0.12);
+            font-weight: 700;
+            text-align: center;
+        }
+        .study-calendar-day {
+            min-height: 84px;
+            padding: 6px 4px;
+            overflow-wrap: anywhere;
+        }
+        .study-calendar-day.today {
+            border-color: #93b9aa;
+            background: #f3f8f5;
+        }
+        .study-calendar-date { font-weight: 700; }
+        .study-calendar-day.today .study-calendar-date { color: #146c63; }
+        .study-calendar-weekday.saturday, .study-calendar-day.saturday { color: #286c9c; }
+        .study-calendar-weekday.sunday, .study-calendar-day.sunday { color: #bb4b42; }
+        .study-calendar-day.outside-month { color: #999; }
+        .study-calendar-task {
+            display: -webkit-box;
+            overflow: hidden;
+            margin-top: 4px;
+            padding: 2px;
+            border-left: 2px solid #146c63;
+            background: rgba(20, 108, 99, 0.1);
+            color: inherit;
+            font-size: 11px;
+            line-height: 1.3;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+        .study-calendar-task.is-done {
+            border-color: #87948d;
+            color: #60716d;
+            text-decoration: line-through;
+        }
+        @media (max-width: 768px) {
+            .study-calendar { gap: 2px; }
+            .study-calendar-weekday { padding: 6px 1px; font-size: 12px; }
+            .study-calendar-day { min-height: 68px; padding: 4px 2px; }
+            .study-calendar-task { font-size: 9px; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f'<div class="study-calendar">{"".join(calendar_cells)}</div>',
+        unsafe_allow_html=True,
+    )
