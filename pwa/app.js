@@ -104,13 +104,6 @@ function renderHome() {
 
 function renderTests() {
   const tests = activeRecords("testResults").sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-  const scores = tests.map((record) => Number(record.score)).filter(Number.isFinite);
-  document.querySelector("#test-count").textContent = `${tests.length}件`;
-  document.querySelector("#test-average").textContent = scores.length
-    ? `${(scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)}点`
-    : "--";
-  document.querySelector("#test-high").textContent = scores.length ? `${Math.max(...scores)}点` : "--";
-
   const filter = document.querySelector("#test-filter");
   const selected = state.selectedTest;
   const testNames = [...new Set(tests.map((record) => record.exam).filter(Boolean))];
@@ -122,6 +115,16 @@ function renderTests() {
   const visibleTests = state.selectedTest === "all"
     ? tests
     : tests.filter((record) => record.exam === state.selectedTest);
+  const scores = visibleTests.map((record) => Number(record.score)).filter(Number.isFinite);
+  document.querySelector("#test-count").textContent = `${visibleTests.length}件`;
+  document.querySelector("#test-average-label").textContent = state.selectedTest === "all"
+    ? "平均点"
+    : `${state.selectedTest}の平均点`;
+  document.querySelector("#test-average").textContent = scores.length
+    ? `${(scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)}点`
+    : "--";
+  document.querySelector("#test-high").textContent = scores.length ? `${Math.max(...scores)}点` : "--";
+
   document.querySelector("#test-results").innerHTML = visibleTests.length
     ? visibleTests.map((record) => `
       <tr>
