@@ -175,8 +175,14 @@ elif st.session_state.current_page == "ToDoリスト":
     def load_todos():
         """CSVファイルからTodoデータを読み込む関数"""
         if os.path.exists(TODO_FILE):
-            # ファイルがあれば読み込む
-            return pd.read_csv(TODO_FILE).to_dict(orient="records")
+            df = pd.read_csv(TODO_FILE)
+            if "due_date" not in df.columns:
+                df["due_date"] = ""
+            todo_list = df.to_dict(orient="records")
+            for item in todo_list:
+                due_date = item.get("due_date")
+                item["due_date"] = "" if pd.isna(due_date) else str(due_date)
+            return todo_list
         else:
             # ファイルがなければ空のリストを返す
             return []
@@ -187,7 +193,7 @@ elif st.session_state.current_page == "ToDoリスト":
         df.to_csv(TODO_FILE, index=False)
 
     def show_todo():
-        st.title("📋 教科別 Todoリスト")
+        st.title("📋 Todoリスト")
 
         # 1. データの初期化（CSVから読み込み）
         if "todo_list" not in st.session_state:
@@ -196,23 +202,27 @@ elif st.session_state.current_page == "ToDoリスト":
         # 2. 入力フォームの作成
         st.subheader("新しいタスクを追加")
         with st.form("todo_form", clear_on_submit=True):
-            subject = st.selectbox(
-                "教科", ["国語", "数学", "英語", "理科", "社会", "その他"]
-            )
+            subject = st.text_input("教科・分類", placeholder="例: 数学")
             task = st.text_input("すること（タスク）", placeholder="例: ワークのP.20〜25を解く")
+            due_date = st.date_input("期限", value=None)
             submit_button = st.form_submit_button("追加する")
 
             if submit_button:
                 if task:
                     # 新しいタスクをリストに追加
-                    new_todo = {"subject": subject,
-                                "task": task, "done": False}
+                    new_todo = {
+                        "subject": subject.strip(),
+                        "task": task,
+                        "due_date": due_date.isoformat() if due_date else "",
+                        "done": False,
+                    }
                     st.session_state.todo_list.append(new_todo)
 
                     # 【追加】CSVファイルに保存する
                     save_todos(st.session_state.todo_list)
 
-                    st.success(f"「[{subject}] {task}」を追加しました！")
+                    subject_label = f"[{subject.strip()}] " if subject.strip() else ""
+                    st.success(f"「{subject_label}{task}」を追加しました！")
                     # 画面を再起動して即座に反映させる
                     st.rerun()
                 else:
@@ -228,7 +238,11 @@ elif st.session_state.current_page == "ToDoリスト":
             state_changed = False
 
             for i, item in enumerate(st.session_state.todo_list):
-                task_text = f"**[{item['subject']}]** {item['task']}"
+                subject = item.get("subject", "")
+                subject_label = f"**[{subject}]** " if subject else ""
+                due_date = item.get("due_date", "")
+                deadline_label = f"（期限: {due_date}）" if due_date else ""
+                task_text = f"{subject_label}{item['task']} {deadline_label}".strip()
 
                 # 完了チェックボックス
                 is_done = st.checkbox(
