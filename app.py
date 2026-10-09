@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return render_template('index.html')  # 👈 これで指定
+    return render_template('pwa/index.html')  # 👈 これで指定
 
 # スマホでタップした瞬間にサイドバーを強制的に閉じるためのJavaScriptを仕込む
 # ラジオボタンがクリックされたら、Streamlit標準の「サイドバーを閉じるボタン」を自動でクリックさせます
