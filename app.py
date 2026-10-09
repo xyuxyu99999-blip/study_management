@@ -1,5 +1,8 @@
-import pandas as pd
+import calendar
 import os
+from datetime import date
+
+import pandas as pd
 import streamlit as st
 
 # スマホでタップした瞬間にサイドバーを強制的に閉じるためのJavaScriptを仕込む
@@ -39,7 +42,7 @@ def on_sidebar_change():
 
 
 # サイドバーメニューの配置
-page_list = ["ホーム", "定期テスト", "ToDoリスト"]
+page_list = ["ホーム", "定期テスト", "ToDoリスト", "カレンダー"]
 selected_page = st.sidebar.radio(
     "メニュー",
     page_list,
@@ -47,6 +50,30 @@ selected_page = st.sidebar.radio(
     key="sb_radio",             # サイドバーの状態を記憶するキー
     on_change=on_sidebar_change  # クリックされた瞬間に状態を同期
 )
+
+TODO_FILE = "todo_list.csv"
+
+
+def load_todos():
+    """CSVファイルからTodoデータを読み込む関数"""
+    if not os.path.exists(TODO_FILE):
+        return []
+
+    df = pd.read_csv(TODO_FILE)
+    df = df.drop(columns=["subject"], errors="ignore")
+    if "due_date" not in df.columns:
+        df["due_date"] = ""
+    todo_list = df.to_dict(orient="records")
+    for item in todo_list:
+        due_date = item.get("due_date")
+        item["due_date"] = "" if pd.isna(due_date) else str(due_date)
+    return todo_list
+
+
+def save_todos(todo_list):
+    """TodoデータをCSVファイルに保存する関数"""
+    df = pd.DataFrame(todo_list).reindex(columns=["task", "due_date", "done"])
+    df.to_csv(TODO_FILE, index=False)
 
 
 if st.session_state.current_page == "ホーム":
@@ -169,29 +196,6 @@ elif st.session_state.current_page == "ToDoリスト":
     st.title("ToDoリスト")
     st.write("課題やテスト日程などを決めましょう")
 
-    # データを保存するCSVファイルの名前
-    TODO_FILE = "todo_list.csv"
-
-    def load_todos():
-        """CSVファイルからTodoデータを読み込む関数"""
-        if os.path.exists(TODO_FILE):
-            df = pd.read_csv(TODO_FILE)
-            if "due_date" not in df.columns:
-                df["due_date"] = ""
-            todo_list = df.to_dict(orient="records")
-            for item in todo_list:
-                due_date = item.get("due_date")
-                item["due_date"] = "" if pd.isna(due_date) else str(due_date)
-            return todo_list
-        else:
-            # ファイルがなければ空のリストを返す
-            return []
-
-    def save_todos(todo_list):
-        """TodoデータをCSVファイルに保存する関数"""
-        df = pd.DataFrame(todo_list)
-        df.to_csv(TODO_FILE, index=False)
-
     def show_todo():
         st.title("📋 Todoリスト")
 
@@ -202,8 +206,7 @@ elif st.session_state.current_page == "ToDoリスト":
         # 2. 入力フォームの作成
         st.subheader("新しいタスクを追加")
         with st.form("todo_form", clear_on_submit=True):
-            subject = st.text_input("教科・分類", placeholder="例: 数学")
-            task = st.text_input("すること（タスク）", placeholder="例: ワークのP.20〜25を解く")
+            task = st.text_input("タスク", placeholder="例: ワークのP.20〜25を解く")
             due_date = st.date_input("期限", value=None)
             submit_button = st.form_submit_button("追加する")
 
@@ -211,7 +214,6 @@ elif st.session_state.current_page == "ToDoリスト":
                 if task:
                     # 新しいタスクをリストに追加
                     new_todo = {
-                        "subject": subject.strip(),
                         "task": task,
                         "due_date": due_date.isoformat() if due_date else "",
                         "done": False,
@@ -221,40 +223,59 @@ elif st.session_state.current_page == "ToDoリスト":
                     # 【追加】CSVファイルに保存する
                     save_todos(st.session_state.todo_list)
 
-                    subject_label = f"[{subject.strip()}] " if subject.strip() else ""
-                    st.success(f"「{subject_label}{task}」を追加しました！")
+                    st.success(f"「{task}」を追加しました！")
                     # 画面を再起動して即座に反映させる
                     st.rerun()
                 else:
-                    st.error("すること（タスク）を入力してください。")
+                    st.error("タスクを入力してください。")
 
-        # 3. Todoリストの表示
-        st.subheader("現在のタスク一覧")
-
+        # 3. 未完了タスクと完了タスクを分けて表示
         if not st.session_state.todo_list:
             st.info("現在追加されているタスクはありません。")
         else:
-            # チェックボックスの状態が変わったかを監視するためのフラグ
             state_changed = False
+            weekday_names = (
+                "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"
+            )
+            todo_items = [
+                (i, item, bool(item.get("done", False)))
+                for i, item in enumerate(st.session_state.todo_list)
+            ]
 
-            for i, item in enumerate(st.session_state.todo_list):
-                subject = item.get("subject", "")
-                subject_label = f"**[{subject}]** " if subject else ""
-                due_date = item.get("due_date", "")
-                deadline_label = f"（期限: {due_date}）" if due_date else ""
-                task_text = f"{subject_label}{item['task']} {deadline_label}".strip()
+            for section_title, is_done_section in [
+                ("未完了タスク", False),
+                ("完了タスク", True),
+            ]:
+                st.subheader(section_title)
+                section_items = [
+                    (i, item, was_done)
+                    for i, item, was_done in todo_items
+                    if was_done == is_done_section
+                ]
 
-                # 完了チェックボックス
-                is_done = st.checkbox(
-                    task_text, key=f"todo_{i}", value=item["done"]
-                )
+                if not section_items:
+                    st.info("該当するタスクはありません。")
+                    continue
 
-                # もしチェック状態が変わったらデータを更新
-                if is_done != item["done"]:
-                    st.session_state.todo_list[i]["done"] = is_done
-                    state_changed = True
+                for i, item, was_done in section_items:
+                    due_date = item.get("due_date", "")
+                    if due_date:
+                        try:
+                            weekday = weekday_names[pd.Timestamp(due_date).weekday()]
+                            deadline_label = f"（期限: {due_date}（{weekday}））"
+                        except (TypeError, ValueError):
+                            deadline_label = f"（期限: {due_date}）"
+                    else:
+                        deadline_label = ""
+                    task_text = f"{item['task']} {deadline_label}".strip()
+                    is_done = st.checkbox(
+                        task_text, key=f"todo_{i}", value=was_done
+                    )
 
-            # 【追加】チェックボックスが押されていたらCSVに保存して画面を更新
+                    if is_done != was_done:
+                        st.session_state.todo_list[i]["done"] = is_done
+                        state_changed = True
+
             if state_changed:
                 save_todos(st.session_state.todo_list)
                 st.rerun()
@@ -266,3 +287,81 @@ elif st.session_state.current_page == "ToDoリスト":
     if st.button("⬅️ ホームに戻る", use_container_width=True):
         st.session_state.current_page = "ホーム"
         st.rerun()
+
+elif st.session_state.current_page == "カレンダー":
+    st.title("予定カレンダー")
+
+    if "calendar_month" not in st.session_state:
+        st.session_state.calendar_month = date.today().replace(day=1)
+
+    previous_column, month_column, next_column = st.columns([1, 3, 1])
+    with previous_column:
+        if st.button("前の月", use_container_width=True):
+            current_month = st.session_state.calendar_month
+            if current_month.month == 1:
+                st.session_state.calendar_month = date(current_month.year - 1, 12, 1)
+            else:
+                st.session_state.calendar_month = date(
+                    current_month.year, current_month.month - 1, 1
+                )
+            st.rerun()
+    with month_column:
+        current_month = st.session_state.calendar_month
+        st.subheader(f"{current_month.year}年{current_month.month}月")
+    with next_column:
+        if st.button("次の月", use_container_width=True):
+            current_month = st.session_state.calendar_month
+            if current_month.month == 12:
+                st.session_state.calendar_month = date(current_month.year + 1, 1, 1)
+            else:
+                st.session_state.calendar_month = date(
+                    current_month.year, current_month.month + 1, 1
+                )
+            st.rerun()
+
+    todos_by_date = {}
+    for item in load_todos():
+        due_date = item.get("due_date", "")
+        if not due_date:
+            continue
+        try:
+            parsed_date = date.fromisoformat(due_date)
+        except ValueError:
+            continue
+        todos_by_date.setdefault(parsed_date, []).append(item)
+
+    if not todos_by_date:
+        st.info("期限が設定されたタスクはありません。")
+
+    weekday_columns = st.columns(7)
+    for weekday_index, (column, weekday) in enumerate(
+        zip(weekday_columns, ["月", "火", "水", "木", "金", "土", "日"])
+    ):
+        with column.container(border=True):
+            if weekday_index == 5:
+                st.markdown(f":blue[**{weekday}**]")
+            elif weekday_index == 6:
+                st.markdown(f":red[**{weekday}**]")
+            else:
+                st.markdown(f"**{weekday}**")
+
+    month_calendar = calendar.Calendar(firstweekday=0)
+    for week in month_calendar.monthdatescalendar(
+        current_month.year, current_month.month
+    ):
+        day_columns = st.columns(7)
+        for column, calendar_day in zip(day_columns, week):
+            with column.container(border=True):
+                if calendar_day.month == current_month.month:
+                    if calendar_day.weekday() == 5:
+                        st.markdown(f":blue[**{calendar_day.day}**]")
+                    elif calendar_day.weekday() == 6:
+                        st.markdown(f":red[**{calendar_day.day}**]")
+                    else:
+                        st.markdown(f"**{calendar_day.day}**")
+                else:
+                    st.markdown(f":gray[{calendar_day.day}]")
+
+                for item in todos_by_date.get(calendar_day, []):
+                    status = "完了: " if item.get("done", False) else ""
+                    st.caption(f"{status}{item['task']}")

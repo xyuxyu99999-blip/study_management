@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#146c63">
+    <meta name="description" content="テスト記録とToDoを端末に保存して管理する勉強アプリ">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icon.svg">
+    <link rel="stylesheet" href="./styles.css">
+    <title>Study Desk</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#home" data-page="home" aria-label="Study Desk ホーム">
+          <span class="brand-mark" aria-hidden="true">S</span>
+          <span><strong>STUDY DESK</strong><small>学習の記録</small></span>
+        </a>
+        <nav class="main-nav" aria-label="メインメニュー">
+          <button type="button" data-page="home"><span class="nav-symbol">⌂</span>ホーム</button>
+          <button type="button" data-page="tests"><span class="nav-symbol">▤</span>テスト記録</button>
+          <button type="button" data-page="todos"><span class="nav-symbol">☑</span>ToDoリスト</button>
+          <button type="button" data-page="calendar"><span class="nav-symbol">▦</span>カレンダー</button>
+          <button type="button" data-page="data"><span class="nav-symbol">⇅</span>データ管理</button>
+        </nav>
+        <div class="sidebar-foot">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="network-status" role="status">オンライン</span>
+          <small>この端末に保存</small>
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <div class="mobile-brand">
+            <span class="brand-mark" aria-hidden="true">S</span>
+            <strong>STUDY DESK</strong>
+          </div>
+          <span class="topbar-note">今日の学びを、ここに。</span>
+          <button class="install-button" id="install-app" type="button" hidden>
+            <span aria-hidden="true">＋</span> インストール
+          </button>
+        </header>
+
+        <main class="main-content">
+          <section class="screen" data-screen="home">
+            <div class="page-heading">
+              <p class="eyebrow">STUDY OVERVIEW</p>
+              <h1>勉強管理</h1>
+              <p class="page-lead">記録と予定を、ひとつの場所に。</p>
+            </div>
+            <div class="metric-grid" id="home-metrics" aria-label="学習状況"></div>
+            <section class="content-section">
+              <div class="section-heading">
+                <div><p class="eyebrow">UP NEXT</p><h2>近い期限</h2></div>
+                <button class="text-button" type="button" data-go="calendar">カレンダーを見る <span aria-hidden="true">→</span></button>
+              </div>
+              <ul class="upcoming-list" id="home-upcoming"></ul>
+            </section>
+            <div class="quick-actions">
+              <button class="action-link" type="button" data-go="tests"><span>＋</span>テスト結果を記録</button>
+              <button class="action-link" type="button" data-go="todos"><span>＋</span>タスクを追加</button>
+            </div>
+          </section>
+
+          <section class="screen" data-screen="tests" hidden>
+            <div class="page-heading">
+              <p class="eyebrow">TEST LOG</p>
+              <h1>テスト記録</h1>
+              <p class="page-lead">結果を残して、次の学習につなげます。</p>
+            </div>
+            <form class="entry-form" id="test-form">
+              <div class="form-heading"><span class="form-index">01</span><h2>結果を追加</h2></div>
+              <label>テスト名<input name="exam" type="text" placeholder="例：2年前期期末テスト"></label>
+              <div class="form-row">
+                <label>教科<input name="subject" type="text" placeholder="例：数学II" required></label>
+                <label>点数<input name="score" type="number" min="0" max="100" step="1" value="0" required></label>
+              </div>
+              <button class="primary-button" type="submit">記録する <span aria-hidden="true">＋</span></button>
+            </form>
+            <section class="content-section">
+              <div class="section-heading">
+                <div><p class="eyebrow">RESULTS</p><h2>記録一覧</h2></div>
+                <label class="select-label"><span class="visually-hidden">テストを絞り込む</span><select id="test-filter"><option value="all">すべてのテスト</option></select></label>
+              </div>
+              <div class="score-summary" aria-label="テスト成績の集計">
+                <div><span>記録数</span><strong id="test-count">0件</strong></div>
+                <div><span>平均点</span><strong id="test-average">--</strong></div>
+                <div><span>最高点</span><strong id="test-high">--</strong></div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>テスト</th><th>教科</th><th>点数</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+                  <tbody id="test-results"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="screen" data-screen="todos" hidden>
+            <div class="page-heading">
+              <p class="eyebrow">TASKS & DEADLINES</p>
+              <h1>ToDoリスト</h1>
+              <p class="page-lead">期限を決めて、ひとつずつ進めます。</p>
+            </div>
+            <form class="entry-form" id="todo-form">
+              <div class="form-heading"><span class="form-index">01</span><h2>タスクを追加</h2></div>
+              <label>すること<input name="task" type="text" placeholder="例：数学の課題 p.20〜25" required></label>
+              <label class="date-label">期限 <span>任意</span><input name="dueDate" type="date"></label>
+              <button class="primary-button" type="submit">追加する <span aria-hidden="true">＋</span></button>
+            </form>
+            <section class="content-section task-section">
+              <div class="section-heading"><div><p class="eyebrow">IN PROGRESS</p><h2>未完了タスク</h2></div></div>
+              <ul class="todo-list" id="todo-open"></ul>
+            </section>
+            <section class="content-section task-section completed-section">
+              <div class="section-heading"><div><p class="eyebrow">DONE</p><h2>完了タスク</h2></div></div>
+              <ul class="todo-list" id="todo-done"></ul>
+            </section>
+          </section>
+
+          <section class="screen" data-screen="calendar" hidden>
+            <div class="page-heading">
+              <p class="eyebrow">PLAN YOUR MONTH</p>
+              <h1>カレンダー</h1>
+              <p class="page-lead">期限のあるタスクを月ごとに確認できます。</p>
+            </div>
+            <section class="calendar-section" aria-label="月間カレンダー">
+              <div class="calendar-toolbar">
+                <button class="month-button" id="calendar-previous" type="button" aria-label="前の月">←</button>
+                <h2 id="calendar-title"></h2>
+                <button class="month-button" id="calendar-next" type="button" aria-label="次の月">→</button>
+              </div>
+              <div class="calendar-grid" id="calendar-grid" role="grid" aria-labelledby="calendar-title"></div>
+              <div class="calendar-legend"><span><i class="legend-dot open-dot"></i>未完了</span><span><i class="legend-dot done-dot"></i>完了</span></div>
+            </section>
+          </section>
+
+          <section class="screen" data-screen="data" hidden>
+            <div class="page-heading">
+              <p class="eyebrow">LOCAL DATA</p>
+              <h1>データ管理</h1>
+              <p class="page-lead">記録はこのブラウザーの中に保存されます。</p>
+            </div>
+            <div class="data-counts">
+              <p>テスト記録 <strong id="data-test-count">0</strong>件</p>
+              <p>ToDo <strong id="data-todo-count">0</strong>件</p>
+            </div>
+            <section class="content-section transfer-section">
+              <div class="section-heading"><div><p class="eyebrow">CSV TRANSFER</p><h2>読み込み・書き出し</h2></div></div>
+              <div class="transfer-row">
+                <div><strong>テスト記録</strong><span>既存の test_results.csv を読み込めます。</span></div>
+                <label class="secondary-button file-button">CSVを読み込む<input id="import-tests" type="file" accept=".csv,text/csv"></label>
+                <button class="secondary-button" id="export-tests" type="button">CSVを書き出す</button>
+              </div>
+              <div class="transfer-row">
+                <div><strong>ToDoリスト</strong><span>既存の todo_list.csv を読み込めます。</span></div>
+                <label class="secondary-button file-button">CSVを読み込む<input id="import-todos" type="file" accept=".csv,text/csv"></label>
+                <button class="secondary-button" id="export-todos" type="button">CSVを書き出す</button>
+              </div>
+            </section>
+            <p class="privacy-note">ブラウザーのデータを消去すると記録も削除されます。定期的にCSVへ書き出してください。</p>
+          </section>
+        </main>
+
+        <nav class="mobile-nav" aria-label="メインメニュー">
+          <button type="button" data-page="home"><span>⌂</span>ホーム</button>
+          <button type="button" data-page="tests"><span>▤</span>テスト</button>
+          <button type="button" data-page="todos"><span>☑</span>ToDo</button>
+          <button type="button" data-page="calendar"><span>▦</span>予定</button>
+          <button type="button" data-page="data"><span>⇅</span>データ</button>
+        </nav>
+      </div>
+    </div>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
