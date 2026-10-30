@@ -271,7 +271,7 @@ h2 {
 
 h1 {
   margin-bottom: 9px;
-  font-family: Georgia, "Yu Mincho", serif;
+  font-family: Georgia, "YU Gothic UI";
   font-size: 34px;
   font-weight: 600;
 }
@@ -958,6 +958,26 @@ th {
   border-radius: 3px;
   color: var(--ink);
   background: var(--paper);
+}
+
+.notification-timing-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 4px;
+}
+
+.notification-timing-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.notification-timing-options input {
+  accent-color: var(--green);
 }
 
 .notification-settings .secondary-button {

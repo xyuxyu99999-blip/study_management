@@ -10,7 +10,7 @@
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="./icon.svg">
-    <link rel="stylesheet" href="./styles.css?v=4">
+    <link rel="stylesheet" href="./styles.css?v=5">
     <title>Study Desk</title>
   </head>
   <body>
@@ -23,9 +23,9 @@
         <nav class="main-nav" aria-label="メインメニュー">
           <button type="button" data-page="home"><span class="nav-symbol">⌂</span>ホーム</button>
           <button type="button" data-page="tests"><span class="nav-symbol">▤</span>テスト記録</button>
-          <button type="button" data-page="todos"><span class="nav-symbol">☑</span>ToDoリスト</button>
+          <button type="button" data-page="todos"><span class="nav-symbol">✓</span>ToDoリスト</button>
           <button type="button" data-page="calendar"><span class="nav-symbol">▦</span>カレンダー</button>
-          <button type="button" data-page="settings"><span class="nav-symbol">⚙</span>設定</button>
+          <button type="button" data-page="settings"><span class="nav-symbol">۞</span>設定</button>
         </nav>
         <div class="sidebar-foot">
           <span class="status-dot" aria-hidden="true"></span>
@@ -75,7 +75,7 @@
             </div>
             <form class="entry-form" id="test-form">
               <div class="form-heading"><span class="form-index">01</span><h2>結果を追加</h2></div>
-              <label>テスト名<input name="exam" type="text" placeholder="例：2年前期期末テスト"></label>
+              <label>テスト名<input name="exam" type="text" placeholder="例：2年学期期末テスト"></label>
               <div class="form-row">
                 <label>教科<input name="subject" type="text" placeholder="例：数学II" required></label>
                 <label>点数<input name="score" type="number" min="0" max="100" step="1" value="0" required></label>
@@ -105,11 +105,11 @@
             <div class="page-heading">
               <p class="eyebrow">TASKS & DEADLINES</p>
               <h1>ToDoリスト</h1>
-              <p class="page-lead">期限を決めて、ひとつずつ進めます。</p>
+              <p class="page-lead">期限を決めて、計画的に進めます。</p>
             </div>
             <form class="entry-form" id="todo-form">
               <div class="form-heading"><span class="form-index">01</span><h2>タスクを追加</h2></div>
-              <label class="date-label">件名 <span>必須</span><input name="task" type="text" placeholder="例：数学の課題" required></label>
+              <label class="date-label">件名 <input name="task" type="text" placeholder="例：数学の課題" required></label>
               <label class="date-label">範囲 <span>任意</span><input name="scope" type="text" placeholder="例：p.20〜25"></label>
               <label class="date-label">期限 <span>任意</span><input name="dueDate" type="date"></label>
               <button class="primary-button" type="submit">追加する <span aria-hidden="true">＋</span></button>
@@ -167,14 +167,15 @@
                   <span id="notification-status" role="status">通知はオフです。</span>
                 </div>
                 <button class="secondary-button" id="notification-toggle" type="button">通知を有効にする</button>
-                <label class="settings-control">
+                <div class="settings-control">
                   <span>通知するタイミング</span>
-                  <select id="notification-timing">
-                    <option value="0">期限当日</option>
-                    <option value="1">1日前と当日</option>
-                    <option value="3">3日前・1日前・当日</option>
-                  </select>
-                </label>
+                  <div id="notification-timing" class="notification-timing-options" role="group" aria-label="通知するタイミング">
+                    <label><input type="checkbox" data-reminder-day value="0">当日</label>
+                    <label><input type="checkbox" data-reminder-day value="1">1日前</label>
+                    <label><input type="checkbox" data-reminder-day value="2">2日前</label>
+                    <label><input type="checkbox" data-reminder-day value="3">3日前</label>
+                  </div>
+                </div>
                 <p class="settings-note">通知を受け取るにはブラウザーの許可が必要です。通知はこのアプリを開いている間に確認されます。アプリを閉じている間の通知は行われません。</p>
               </div>
             </section>
@@ -190,7 +191,7 @@
                 <label class="secondary-button file-button">CSVを読み込む<input id="import-todos" type="file" accept=".csv,text/csv"></label>
                 <button class="secondary-button" id="export-todos" type="button">CSVを書き出す</button>
               </div>
-              <p class="privacy-note">ブラウザーのデータを消去すると記録も削除されます。定期的にCSVへ書き出してください。</p>
+              <p class="privacy-note">ブラウザーのキャッシュを消去されると記録も削除されます。定期的にCSVへ書き出してください。</p>
             </section>
             <section class="content-section settings-section">
               <div class="section-heading"><div><p class="eyebrow">UPDATE HISTORY</p><h2>アップデート履歴</h2></div></div>
@@ -225,12 +226,12 @@
         <nav class="mobile-nav" aria-label="メインメニュー">
           <button type="button" data-page="home"><span>⌂</span>ホーム</button>
           <button type="button" data-page="tests"><span>▤</span>テスト</button>
-          <button type="button" data-page="todos"><span>☑</span>ToDo</button>
+          <button type="button" data-page="todos"><span>✓</span>ToDo</button>
           <button type="button" data-page="calendar"><span>▦</span>予定</button>
-          <button type="button" data-page="settings"><span>⚙</span>設定</button>
+          <button type="button" data-page="settings"><span>۞</span>設定</button>
         </nav>
       </div>
     </div>
-    <script src="./app.js?v=4" defer></script>
+    <script src="./app.js?v=5" defer></script>
   </body>
 </html>

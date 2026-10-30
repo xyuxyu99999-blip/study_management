@@ -43,24 +43,33 @@ function loadSettings() {
   const defaults = {
     theme: "light",
     notificationsEnabled: false,
-    notificationTiming: "1",
+    notificationTiming: ["0", "1"],
     notifiedReminders: [],
   };
+  const activeTheme = ["light", "dark"].includes(document.documentElement.dataset.theme)
+    ? document.documentElement.dataset.theme
+    : defaults.theme;
+
   try {
     const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    const storedTheme = ["light", "dark"].includes(stored.theme) ? stored.theme : null;
+    const resolvedTheme = activeTheme !== defaults.theme || storedTheme === null ? activeTheme : storedTheme;
+    const rawTiming = Array.isArray(stored.notificationTiming)
+      ? stored.notificationTiming
+      : [stored.notificationTiming].filter((value) => value !== undefined && value !== null);
+    const notificationTiming = [...new Set(rawTiming.map((value) => String(value)).filter((value) => ["0", "1", "2", "3"].includes(value)))].sort((left, right) => Number(left) - Number(right));
+
     return {
       ...defaults,
-      theme: ["light", "dark"].includes(stored.theme) ? stored.theme : defaults.theme,
+      theme: resolvedTheme,
       notificationsEnabled: stored.notificationsEnabled === true,
-      notificationTiming: ["0", "1", "3"].includes(String(stored.notificationTiming))
-        ? String(stored.notificationTiming)
-        : defaults.notificationTiming,
+      notificationTiming: notificationTiming.length > 0 ? notificationTiming : defaults.notificationTiming,
       notifiedReminders: Array.isArray(stored.notifiedReminders)
         ? stored.notifiedReminders.filter((item) => typeof item === "string")
         : [],
     };
   } catch {
-    return defaults;
+    return { ...defaults, theme: activeTheme };
   }
 }
 
@@ -73,7 +82,11 @@ function saveSettings() {
 }
 
 function applyTheme() {
-  document.documentElement.dataset.theme = state.settings.theme;
+  const resolvedTheme = ["light", "dark"].includes(state.settings.theme)
+    ? state.settings.theme
+    : "light";
+  state.settings.theme = resolvedTheme;
+  document.documentElement.dataset.theme = resolvedTheme;
 }
 
 function activeRecords(collection) {
@@ -244,10 +257,18 @@ function renderCalendar() {
 }
 
 function renderSettings() {
+  const themeSelect = document.querySelector("#theme-select");
+  const effectiveTheme = ["light", "dark"].includes(document.documentElement.dataset.theme)
+    ? document.documentElement.dataset.theme
+    : state.settings.theme;
+  state.settings.theme = effectiveTheme;
+  themeSelect.value = effectiveTheme;
+
   document.querySelector("#settings-test-count").textContent = activeRecords("testResults").length;
   document.querySelector("#settings-todo-count").textContent = activeRecords("todos").length;
-  document.querySelector("#theme-select").value = state.settings.theme;
-  document.querySelector("#notification-timing").value = state.settings.notificationTiming;
+  document.querySelectorAll("[data-reminder-day]").forEach((checkbox) => {
+    checkbox.checked = state.settings.notificationTiming.includes(checkbox.value);
+  });
 
   const toggle = document.querySelector("#notification-toggle");
   const status = document.querySelector("#notification-status");
@@ -269,9 +290,11 @@ function renderSettings() {
 }
 
 function reminderOffsets() {
-  if (state.settings.notificationTiming === "3") return [3, 1, 0];
-  if (state.settings.notificationTiming === "1") return [1, 0];
-  return [0];
+  const offsets = Array.isArray(state.settings.notificationTiming)
+    ? state.settings.notificationTiming
+    : [state.settings.notificationTiming];
+
+  return [...new Set(offsets.map((value) => Number(value)).filter((value) => [0, 1, 2, 3].includes(value)))].sort((left, right) => left - right);
 }
 
 async function showReminder(todo, daysUntilDue) {
@@ -548,12 +571,18 @@ document.querySelector("#theme-select").addEventListener("change", (event) => {
   state.settings.theme = event.currentTarget.value;
   saveSettings();
   applyTheme();
+  renderSettings();
 });
 
-document.querySelector("#notification-timing").addEventListener("change", (event) => {
-  state.settings.notificationTiming = event.currentTarget.value;
-  saveSettings();
-  void checkDueReminders();
+document.querySelectorAll("[data-reminder-day]").forEach((checkbox) => {
+  checkbox.addEventListener("change", () => {
+    state.settings.notificationTiming = [...document.querySelectorAll("[data-reminder-day]:checked")]
+      .map((input) => input.value)
+      .sort((left, right) => Number(left) - Number(right));
+    saveSettings();
+    renderSettings();
+    void checkDueReminders();
+  });
 });
 
 document.querySelector("#notification-toggle").addEventListener("click", async () => {
