@@ -4,6 +4,8 @@ const WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"];
 const state = {
   page: "home",
   month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  studyPeriod: "daily",
+  studyDate: new Date(),
   selectedTest: "all",
   editingTodoId: null,
   data: loadData(),
@@ -32,10 +34,11 @@ function loadData() {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     return {
       testResults: normalizeRecords(Array.isArray(stored.testResults) ? stored.testResults : []),
+      studyRecords: normalizeRecords(Array.isArray(stored.studyRecords) ? stored.studyRecords : []),
       todos: normalizeRecords(Array.isArray(stored.todos) ? stored.todos : []),
     };
   } catch {
-    return { testResults: [], todos: [] };
+    return { testResults: [], studyRecords: [], todos: [] };
   }
 }
 
@@ -130,6 +133,7 @@ function setPage(page) {
 function renderPage() {
   if (state.page === "home") renderHome();
   if (state.page === "tests") renderTests();
+  if (state.page === "study") renderStudy();
   if (state.page === "todos") renderTodos();
   if (state.page === "calendar") renderCalendar();
   if (state.page === "settings") renderSettings();
@@ -185,6 +189,109 @@ function renderTests() {
         <td><button class="icon-button" type="button" data-delete-test="${escapeHtml(record.id)}" aria-label="記録を削除">削除</button></td>
       </tr>`).join("")
     : '<tr><td colspan="4" class="empty-state">テスト記録はまだありません。</td></tr>';
+}
+
+function dateKey(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function isValidDateKey(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function formatStudyDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours && remainingMinutes) return `${hours}時間${remainingMinutes}分`;
+  if (hours) return `${hours}時間`;
+  return `${remainingMinutes}分`;
+}
+
+function renderStudy() {
+  const year = state.studyDate.getFullYear();
+  const month = state.studyDate.getMonth();
+  let title;
+  let buckets;
+
+  if (state.studyPeriod === "daily") {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    title = `${year}年${month + 1}月`;
+    buckets = Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
+      const key = dateKey(year, month, day);
+      return { key, label: String(day), title: `${month + 1}月${day}日` };
+    });
+  } else if (state.studyPeriod === "monthly") {
+    title = `${year}年`;
+    buckets = Array.from({ length: 12 }, (_, index) => ({
+      key: `${year}-${String(index + 1).padStart(2, "0")}`,
+      label: `${index + 1}月`,
+      title: `${year}年${index + 1}月`,
+    }));
+  } else {
+    const decadeStart = Math.floor(year / 10) * 10;
+    title = `${decadeStart}年〜${decadeStart + 9}年`;
+    buckets = Array.from({ length: 10 }, (_, index) => {
+      const bucketYear = decadeStart + index;
+      return { key: String(bucketYear), label: String(bucketYear), title: `${bucketYear}年` };
+    });
+  }
+
+  const totals = new Map(buckets.map((bucket) => [bucket.key, 0]));
+  const records = activeRecords("studyRecords").filter((record) =>
+    isValidDateKey(record.date || "") && Number.isInteger(Number(record.minutes)) && Number(record.minutes) > 0
+  );
+  records.forEach((record) => {
+    const [recordYear, recordMonth] = record.date.split("-").map(Number);
+    const key = state.studyPeriod === "daily"
+      ? record.date
+      : state.studyPeriod === "monthly"
+        ? `${recordYear}-${String(recordMonth).padStart(2, "0")}`
+        : String(recordYear);
+    if (totals.has(key)) totals.set(key, totals.get(key) + Number(record.minutes));
+  });
+
+  const maxMinutes = Math.max(0, ...totals.values());
+  const totalMinutes = [...totals.values()].reduce((sum, minutes) => sum + minutes, 0);
+  const periodEntries = records.filter((record) => {
+    const [recordYear, recordMonth] = record.date.split("-").map(Number);
+    if (state.studyPeriod === "daily") return recordYear === year && recordMonth === month + 1;
+    if (state.studyPeriod === "monthly") return recordYear === year;
+    return Math.floor(recordYear / 10) === Math.floor(year / 10);
+  });
+  document.querySelector("#study-chart-title").textContent = title;
+  document.querySelector("#study-total-label").textContent = state.studyPeriod === "daily"
+    ? "月の合計"
+    : state.studyPeriod === "monthly"
+      ? "年の合計"
+      : "10年間の合計";
+  document.querySelector("#study-total").textContent = formatStudyDuration(totalMinutes);
+  document.querySelector("#study-entry-count").textContent = `${periodEntries.length}件の記録`;
+  document.querySelector("#study-chart").innerHTML = buckets.map((bucket) => {
+    const minutes = totals.get(bucket.key);
+    const height = maxMinutes ? Math.max(2, Math.round(minutes / maxMinutes * 100)) : 0;
+    return `<div class="study-bar-column" role="listitem" aria-label="${bucket.title}：${formatStudyDuration(minutes)}">
+      <span class="study-bar-value">${minutes || ""}</span>
+      <div class="study-bar-track"><span class="study-bar" style="height:${height}%"></span></div>
+      <span class="study-bar-label">${bucket.label}</span>
+    </div>`;
+  }).join("");
+  document.querySelector("#study-chart").dataset.period = state.studyPeriod;
+
+  const recentRecords = records.sort((left, right) =>
+    right.date.localeCompare(left.date) || right.createdAt.localeCompare(left.createdAt)
+  ).slice(0, 50);
+  document.querySelector("#study-results").innerHTML = recentRecords.length
+    ? recentRecords.map((record) => `
+      <tr>
+        <td>${formatDate(record.date)}</td>
+        <td>${escapeHtml(record.subject || "—")}</td>
+        <td class="score-cell">${formatStudyDuration(Number(record.minutes))}</td>
+        <td><button class="icon-button" type="button" data-delete-study="${escapeHtml(record.id)}" aria-label="勉強時間の記録を削除">削除</button></td>
+      </tr>`).join("")
+    : '<tr><td colspan="4" class="empty-state">勉強時間の記録はまだありません。</td></tr>';
 }
 
 function renderTodos() {
@@ -265,6 +372,7 @@ function renderSettings() {
   themeSelect.value = effectiveTheme;
 
   document.querySelector("#settings-test-count").textContent = activeRecords("testResults").length;
+  document.querySelector("#settings-study-count").textContent = activeRecords("studyRecords").length;
   document.querySelector("#settings-todo-count").textContent = activeRecords("todos").length;
   document.querySelectorAll("[data-reminder-day]").forEach((checkbox) => {
     checkbox.checked = state.settings.notificationTiming.includes(checkbox.value);
@@ -394,6 +502,9 @@ function exportCsv(collection) {
   if (collection === "testResults") {
     csv = ["テスト,教科,点数", ...records.map((item) => [item.exam, item.subject, item.score].map(csvEscape).join(","))].join("\r\n");
     filename = "test_results.csv";
+  } else if (collection === "studyRecords") {
+    csv = ["date,subject,minutes", ...records.map((item) => [item.date, item.subject, item.minutes].map(csvEscape).join(","))].join("\r\n");
+    filename = "study_time.csv";
   } else {
     csv = ["task,scope,due_date,done", ...records.map((item) => [item.task, item.scope, item.dueDate, item.done].map(csvEscape).join(","))].join("\r\n");
     filename = "todo_list.csv";
@@ -452,6 +563,16 @@ async function importCsv(file, collection) {
         score: Number.isFinite(score) ? score : 0,
       });
     }
+    if (collection === "studyRecords") {
+      const date = String(record.date || "");
+      const minutes = Number(record.minutes);
+      if (!isValidDateKey(date) || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440) return null;
+      return createRecord({
+        date,
+        subject: String(record.subject || ""),
+        minutes,
+      });
+    }
     const task = record.task ?? record["タスク"];
     if (!task) return null;
     return createRecord({
@@ -495,6 +616,45 @@ document.querySelector("#test-form").addEventListener("submit", (event) => {
 document.querySelector("#test-filter").addEventListener("change", (event) => {
   state.selectedTest = event.currentTarget.value;
   renderTests();
+});
+
+const studyDateInput = document.querySelector('#study-form [name="date"]');
+studyDateInput.value = dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+document.querySelector("#study-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const date = String(form.get("date") || "");
+  const minutes = Number(form.get("minutes"));
+  if (!isValidDateKey(date) || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440) return;
+  state.data.studyRecords.push(createRecord({
+    date,
+    subject: String(form.get("subject") || "").trim(),
+    minutes,
+  }));
+  event.currentTarget.reset();
+  studyDateInput.value = dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  persistAndRender();
+});
+
+document.querySelectorAll("[data-study-period]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.studyPeriod = button.dataset.studyPeriod;
+    document.querySelectorAll("[data-study-period]").forEach((tab) => {
+      tab.setAttribute("aria-pressed", String(tab === button));
+    });
+    renderStudy();
+  });
+});
+
+document.querySelector("#study-previous").addEventListener("click", () => {
+  const offset = state.studyPeriod === "daily" ? -1 : state.studyPeriod === "monthly" ? -12 : -120;
+  state.studyDate = new Date(state.studyDate.getFullYear(), state.studyDate.getMonth() + offset, 1);
+  renderStudy();
+});
+document.querySelector("#study-next").addEventListener("click", () => {
+  const offset = state.studyPeriod === "daily" ? 1 : state.studyPeriod === "monthly" ? 12 : 120;
+  state.studyDate = new Date(state.studyDate.getFullYear(), state.studyDate.getMonth() + offset, 1);
+  renderStudy();
 });
 
 document.querySelector("#todo-form").addEventListener("submit", (event) => {
@@ -541,6 +701,7 @@ document.addEventListener("change", (event) => {
 
 document.addEventListener("click", (event) => {
   const testId = event.target.closest("[data-delete-test]")?.dataset.deleteTest;
+  const studyId = event.target.closest("[data-delete-study]")?.dataset.deleteStudy;
   const todoId = event.target.closest("[data-delete-todo]")?.dataset.deleteTodo;
   const editTodoId = event.target.closest("[data-edit-todo]")?.dataset.editTodo;
   const cancelTodoId = event.target.closest("[data-cancel-todo-edit]")?.dataset.cancelTodoEdit;
@@ -555,6 +716,7 @@ document.addEventListener("click", (event) => {
     return;
   }
   if (testId && window.confirm("この記録を削除しますか？")) markDeleted("testResults", testId);
+  if (studyId && window.confirm("この勉強時間の記録を削除しますか？")) markDeleted("studyRecords", studyId);
   if (todoId && window.confirm("このタスクを削除しますか？")) markDeleted("todos", todoId);
 });
 
@@ -626,12 +788,17 @@ document.querySelector("#notification-toggle").addEventListener("click", async (
 
 document.querySelector("#export-tests").addEventListener("click", () => exportCsv("testResults"));
 document.querySelector("#export-todos").addEventListener("click", () => exportCsv("todos"));
+document.querySelector("#export-study").addEventListener("click", () => exportCsv("studyRecords"));
 document.querySelector("#import-tests").addEventListener("change", (event) => {
   if (event.target.files[0]) importCsv(event.target.files[0], "testResults");
   event.target.value = "";
 });
 document.querySelector("#import-todos").addEventListener("change", (event) => {
   if (event.target.files[0]) importCsv(event.target.files[0], "todos");
+  event.target.value = "";
+});
+document.querySelector("#import-study").addEventListener("change", (event) => {
+  if (event.target.files[0]) importCsv(event.target.files[0], "studyRecords");
   event.target.value = "";
 });
 

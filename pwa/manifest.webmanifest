@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Study Desk | 勉強管理",
   "short_name": "勉強管理",
-  "description": "テスト記録とToDoを端末に保存して管理する勉強アプリ",
+  "description": "勉強時間・テスト記録とToDoを端末に保存して管理する勉強アプリ",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
